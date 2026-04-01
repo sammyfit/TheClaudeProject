@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+         https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.4.3</version>
+        <relativePath/>
+    </parent>
+
+    <groupId>com.knorr</groupId>
+    <artifactId>teamcenter-mcp-server</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+    <name>Teamcenter MCP Server</name>
+    <description>
+        Spring Boot MCP Server exposing Siemens Teamcenter PLM operations
+        via Streamable HTTP transport for Microsoft Copilot integration.
+    </description>
+
+    <properties>
+        <java.version>17</java.version>
+        <spring-ai.version>1.1.0</spring-ai.version>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.springframework.ai</groupId>
+                <artifactId>spring-ai-bom</artifactId>
+                <version>${spring-ai.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <dependencies>
+        <!-- ============================================================
+             SPRING AI MCP SERVER (WebMVC - Streamable HTTP transport)
+             This single starter gives you:
+               - MCP protocol handling
+               - Streamable HTTP transport (replaces deprecated SSE)
+               - @McpTool annotation support
+               - Auto-registration of tools as Spring beans
+             ============================================================ -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-mcp-server-webmvc</artifactId>
+        </dependency>
+
+        <!-- Spring Boot Web (pulled by the MCP starter, explicit for clarity) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <!-- Spring Boot Actuator for health checks / monitoring -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
+        <!-- ============================================================
+             TEAMCENTER SOA CLIENT LIBRARIES
+             ============================================================
+             These JARs come from your Teamcenter installation's
+             soa_client.zip (found on the TC distribution media).
+
+             Extract soa_client.zip and install into your local Maven
+             repo or corporate Nexus/Artifactory:
+
+               mvn install:install-file \
+                 -Dfile=java/libs/TcSoaClient.jar \
+                 -DgroupId=com.siemens.teamcenter \
+                 -DartifactId=tcsoaclient \
+                 -Dversion=14.0 \
+                 -Dpackaging=jar
+
+             Repeat for each JAR. Then uncomment below.
+             ============================================================ -->
+        <!--
+        <dependency>
+            <groupId>com.siemens.teamcenter</groupId>
+            <artifactId>tcsoaclient</artifactId>
+            <version>${tc.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.siemens.teamcenter</groupId>
+            <artifactId>tcsoacommon</artifactId>
+            <version>${tc.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.siemens.teamcenter</groupId>
+            <artifactId>tcsoaquery_strong</artifactId>
+            <version>${tc.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.siemens.teamcenter</groupId>
+            <artifactId>tcsoacore_strong</artifactId>
+            <version>${tc.version}</version>
+        </dependency>
+        -->
+
+        <!-- Testing -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- MCP Java SDK core - for McpClient in integration tests -->
+        <dependency>
+            <groupId>io.modelcontextprotocol.sdk</groupId>
+            <artifactId>mcp</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>

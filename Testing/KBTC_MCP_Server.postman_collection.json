@@ -1,0 +1,1038 @@
+{
+	"info": {
+		"_postman_id": "kbtc-mcp-server-tests",
+		"name": "KBTC Teamcenter MCP Server",
+		"description": "Complete test collection for the Knorr-Bremse Teamcenter MCP Server.\n\nIMPORTANT: Run requests in order:\n1. Initialize (saves session ID automatically)\n2. Initialized Notification\n3. Then any tools/list or tools/call request\n\nThe session ID is stored in a collection variable and auto-injected into all subsequent requests.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8080",
+			"type": "string"
+		},
+		{
+			"key": "mcp_session_id",
+			"value": "",
+			"type": "string"
+		}
+	],
+	"item": [
+		{
+			"name": "1. Setup",
+			"item": [
+				{
+					"name": "1.1 Initialize (Run First!)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var sessionId = pm.response.headers.get('Mcp-Session-Id') || pm.response.headers.get('mcp-session-id');",
+									"if (sessionId) {",
+									"    pm.collectionVariables.set('mcp_session_id', sessionId);",
+									"    pm.test('Session ID captured: ' + sessionId, function() {",
+									"        pm.expect(sessionId).to.not.be.empty;",
+									"    });",
+									"} else {",
+									"    pm.test('WARNING: No Mcp-Session-Id header found', function() {",
+									"        pm.expect.fail('Check if server supports Streamable HTTP');",
+									"    });",
+									"}",
+									"pm.test('Status code is 200', function() { pm.response.to.have.status(200); });",
+									"pm.test('Response contains server info', function() { pm.expect(pm.response.text()).to.include('serverInfo'); });"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json, text/event-stream"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"jsonrpc\": \"2.0\",\n    \"id\": 1,\n    \"method\": \"initialize\",\n    \"params\": {\n        \"protocolVersion\": \"2025-03-26\",\n        \"capabilities\": {},\n        \"clientInfo\": {\n            \"name\": \"postman-test\",\n            \"version\": \"1.0.0\"\n        }\n    }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/mcp",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"mcp"
+							]
+						},
+						"description": "MCP handshake - must be run FIRST. Auto-saves the Mcp-Session-Id."
+					}
+				},
+				{
+					"name": "1.2 Initialized Notification",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json, text/event-stream"
+							},
+							{
+								"key": "Mcp-Session-Id",
+								"value": "{{mcp_session_id}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"jsonrpc\": \"2.0\",\n    \"method\": \"notifications/initialized\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/mcp",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"mcp"
+							]
+						},
+						"description": "Tells the server the client is ready. May return 202 or empty - that's normal."
+					}
+				},
+				{
+					"name": "1.3 Ping",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function() { pm.response.to.have.status(200); });"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json, text/event-stream"
+							},
+							{
+								"key": "Mcp-Session-Id",
+								"value": "{{mcp_session_id}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"jsonrpc\": \"2.0\",\n    \"id\": 2,\n    \"method\": \"ping\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/mcp",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"mcp"
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "2. Tool Discovery",
+			"item": [
+				{
+					"name": "2.1 List All Tools",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function() { pm.response.to.have.status(200); });",
+									"var body = pm.response.text();",
+									"pm.test('Contains tc_search_items', function() { pm.expect(body).to.include('tc_search_items'); });",
+									"pm.test('Contains tc_get_item_revision', function() { pm.expect(body).to.include('tc_get_item_revision'); });",
+									"pm.test('Contains tc_get_release_status', function() { pm.expect(body).to.include('tc_get_release_status'); });",
+									"pm.test('Contains tc_get_revision_history', function() { pm.expect(body).to.include('tc_get_revision_history'); });",
+									"pm.test('Contains tc_get_project_linkage', function() { pm.expect(body).to.include('tc_get_project_linkage'); });",
+									"pm.test('Contains tc_get_release_approvers', function() { pm.expect(body).to.include('tc_get_release_approvers'); });",
+									"pm.test('Contains tc_validate_evidence_list', function() { pm.expect(body).to.include('tc_validate_evidence_list'); });",
+									"pm.test('Contains tc_validate_single_document', function() { pm.expect(body).to.include('tc_validate_single_document'); });"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json, text/event-stream"
+							},
+							{
+								"key": "Mcp-Session-Id",
+								"value": "{{mcp_session_id}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"jsonrpc\": \"2.0\",\n    \"id\": 10,\n    \"method\": \"tools/list\",\n    \"params\": {}\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/mcp",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"mcp"
+							]
+						},
+						"description": "Lists all registered MCP tools. Should show 9 tools."
+					}
+				}
+			]
+		},
+		{
+			"name": "3. Search Tools",
+			"item": [
+				{
+					"name": "3.1 Search Items by Keyword",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status 200', function() { pm.response.to.have.status(200); });",
+									"pm.test('Has results', function() { pm.expect(pm.response.text()).to.include('results'); });"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json, text/event-stream"
+							},
+							{
+								"key": "Mcp-Session-Id",
+								"value": "{{mcp_session_id}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"jsonrpc\": \"2.0\",\n    \"id\": 20,\n    \"method\": \"tools/call\",\n    \"params\": {\n        \"name\": \"tc_search_items\",\n        \"arguments\": {\n            \"keyword\": \"Safety\",\n            \"maxResults\": 10\n        }\n    }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/mcp",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"mcp"
+							]
+						},
+						"description": "Search items by name keyword. Wildcards added automatically."
+					}
+				},
+				{
+					"name": "3.2 Search by Item ID (Y-number)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status 200', function() { pm.response.to.have.status(200); });",
+									"pm.test('Has results', function() { pm.expect(pm.response.text()).to.include('results'); });"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json, text/event-stream"
+							},
+							{
+								"key": "Mcp-Session-Id",
+								"value": "{{mcp_session_id}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"jsonrpc\": \"2.0\",\n    \"id\": 21,\n    \"method\": \"tools/call\",\n    \"params\": {\n        \"name\": \"tc_search_by_item_id\",\n        \"arguments\": {\n            \"itemId\": \"Y500988\",\n            \"maxResults\": 5\n        }\n    }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/mcp",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"mcp"
+							]
+						},
+						"description": "Search by exact Item ID or pattern. Try Y500988 or Y5009*"
+					}
+				},
+				{
+					"name": "3.3 Search by Item ID (Wildcard)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json, text/event-stream"
+							},
+							{
+								"key": "Mcp-Session-Id",
+								"value": "{{mcp_session_id}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"jsonrpc\": \"2.0\",\n    \"id\": 22,\n    \"method\": \"tools/call\",\n    \"params\": {\n        \"name\": \"tc_search_by_item_id\",\n        \"arguments\": {\n            \"itemId\": \"Y5679*\",\n            \"maxResults\": 10\n        }\n    }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/mcp",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"mcp"
+							]
+						},
+						"description": "Search with wildcard pattern to find multiple Y-numbers."
+					}
+				},
+				{
+					"name": "3.4 List Saved Queries",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status 200', function() { pm.response.to.have.status(200); });",
+									"pm.test('Has saved_queries', function() { pm.expect(pm.response.text()).to.include('saved_queries'); });"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json, text/event-stream"
+							},
+							{
+								"key": "Mcp-Session-Id",
+								"value": "{{mcp_session_id}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"jsonrpc\": \"2.0\",\n    \"id\": 23,\n    \"method\": \"tools/call\",\n    \"params\": {\n        \"name\": \"tc_list_saved_queries\",\n        \"arguments\": {}\n    }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/mcp",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"mcp"
+							]
+						},
+						"description": "List all saved queries available in Teamcenter."
+					}
+				},
+				{
+					"name": "3.5 Execute Saved Query",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status 200', function() { pm.response.to.have.status(200); });",
+									"pm.test('Has results', function() { pm.expect(pm.response.text()).to.include('results'); });"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json, text/event-stream"
+							},
+							{
+								"key": "Mcp-Session-Id",
+								"value": "{{mcp_session_id}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"jsonrpc\": \"2.0\",\n    \"id\": 24,\n    \"method\": \"tools/call\",\n    \"params\": {\n        \"name\": \"tc_execute_saved_query\",\n        \"arguments\": {\n            \"queryName\": \"__WEB_find_Items\",\n            \"criteriaJson\": \"{\\\"Item ID\\\": \\\"Y5679*\\\", \\\"Name\\\": \\\"*Quality*\\\"}\",\n            \"maxResults\": 10\n        }\n    }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/mcp",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"mcp"
+							]
+						},
+						"description": "Execute a saved query with multiple criteria. Supports wildcards."
+					}
+				},
+				{
+					"name": "3.6 Execute Saved Query (Item Revisions)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json, text/event-stream"
+							},
+							{
+								"key": "Mcp-Session-Id",
+								"value": "{{mcp_session_id}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"jsonrpc\": \"2.0\",\n    \"id\": 25,\n    \"method\": \"tools/call\",\n    \"params\": {\n        \"name\": \"tc_execute_saved_query\",\n        \"arguments\": {\n            \"queryName\": \"__WEB_find_Item_Revision\",\n            \"criteriaJson\": \"{\\\"Item ID\\\": \\\"Y500988\\\", \\\"Revision\\\": \\\"002\\\"}\",\n            \"maxResults\": 5\n        }\n    }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/mcp",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"mcp"
+							]
+						},
+						"description": "Search for a specific Item Revision using the Item Revision saved query."
+					}
+				}
+			]
+		},
+		{
+			"name": "4. Item Revision Tools (Req 1, 2, 3)",
+			"item": [
+				{
+					"name": "4.1 Get Item Revision (Req 1)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function() { pm.response.to.have.status(200); });",
+									"pm.test('Contains latest_revision', function() { pm.expect(pm.response.text()).to.include('latest_revision'); });"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json, text/event-stream"
+							},
+							{
+								"key": "Mcp-Session-Id",
+								"value": "{{mcp_session_id}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"jsonrpc\": \"2.0\",\n    \"id\": 30,\n    \"method\": \"tools/call\",\n    \"params\": {\n        \"name\": \"tc_get_item_revision\",\n        \"arguments\": {\n            \"itemId\": \"Y500988\"\n        }\n    }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/mcp",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"mcp"
+							]
+						},
+						"description": "Requirement 1: Get latest revision for a Y-number. Change Y500988 to a real Item ID in your TC."
+					}
+				},
+				{
+					"name": "4.2 Get Release Status (Req 2)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function() { pm.response.to.have.status(200); });",
+									"pm.test('Contains release_status', function() { pm.expect(pm.response.text()).to.include('release_status'); });"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json, text/event-stream"
+							},
+							{
+								"key": "Mcp-Session-Id",
+								"value": "{{mcp_session_id}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"jsonrpc\": \"2.0\",\n    \"id\": 31,\n    \"method\": \"tools/call\",\n    \"params\": {\n        \"name\": \"tc_get_release_status\",\n        \"arguments\": {\n            \"itemId\": \"Y500988\",\n            \"revisionId\": \"002\"\n        }\n    }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/mcp",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"mcp"
+							]
+						},
+						"description": "Requirement 2: Check if a specific revision is Released."
+					}
+				},
+				{
+					"name": "4.3 Get Revision History (Req 3)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function() { pm.response.to.have.status(200); });",
+									"pm.test('Contains revisions', function() { pm.expect(pm.response.text()).to.include('revisions'); });"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json, text/event-stream"
+							},
+							{
+								"key": "Mcp-Session-Id",
+								"value": "{{mcp_session_id}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"jsonrpc\": \"2.0\",\n    \"id\": 32,\n    \"method\": \"tools/call\",\n    \"params\": {\n        \"name\": \"tc_get_revision_history\",\n        \"arguments\": {\n            \"itemId\": \"Y567814\"\n        }\n    }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/mcp",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"mcp"
+							]
+						},
+						"description": "Requirement 3: Get full revision history. Y567814 from your Annex C example."
+					}
+				}
+			]
+		},
+		{
+			"name": "5. Project Linkage (Req 4)",
+			"item": [
+				{
+					"name": "5.1 Get Project Linkage",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function() { pm.response.to.have.status(200); });",
+									"pm.test('Contains linked_projects', function() { pm.expect(pm.response.text()).to.include('linked_projects'); });"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json, text/event-stream"
+							},
+							{
+								"key": "Mcp-Session-Id",
+								"value": "{{mcp_session_id}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"jsonrpc\": \"2.0\",\n    \"id\": 40,\n    \"method\": \"tools/call\",\n    \"params\": {\n        \"name\": \"tc_get_project_linkage\",\n        \"arguments\": {\n            \"itemId\": \"Y500988\",\n            \"revisionId\": \"002\"\n        }\n    }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/mcp",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"mcp"
+							]
+						},
+						"description": "Requirement 4: Check which projects a document is linked to."
+					}
+				},
+				{
+					"name": "5.2 Get Project Linkage (latest revision)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json, text/event-stream"
+							},
+							{
+								"key": "Mcp-Session-Id",
+								"value": "{{mcp_session_id}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"jsonrpc\": \"2.0\",\n    \"id\": 41,\n    \"method\": \"tools/call\",\n    \"params\": {\n        \"name\": \"tc_get_project_linkage\",\n        \"arguments\": {\n            \"itemId\": \"Y427189\"\n        }\n    }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/mcp",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"mcp"
+							]
+						},
+						"description": "Check project linkage without specifying revision (uses latest)."
+					}
+				}
+			]
+		},
+		{
+			"name": "6. Workflow & Approvers (Req 5)",
+			"item": [
+				{
+					"name": "6.1 Get Release Approvers",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function() { pm.response.to.have.status(200); });",
+									"pm.test('Contains release_method', function() { pm.expect(pm.response.text()).to.include('release_method'); });"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json, text/event-stream"
+							},
+							{
+								"key": "Mcp-Session-Id",
+								"value": "{{mcp_session_id}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"jsonrpc\": \"2.0\",\n    \"id\": 50,\n    \"method\": \"tools/call\",\n    \"params\": {\n        \"name\": \"tc_get_release_approvers\",\n        \"arguments\": {\n            \"itemId\": \"Y500988\",\n            \"revisionId\": \"002\"\n        }\n    }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/mcp",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"mcp"
+							]
+						},
+						"description": "Requirement 5: Who released the document? Single person or signature run?"
+					}
+				}
+			]
+		},
+		{
+			"name": "7. Evidence List Validation (All Reqs)",
+			"item": [
+				{
+					"name": "7.1 Validate Single Document",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function() { pm.response.to.have.status(200); });",
+									"pm.test('Contains validationStatus', function() { pm.expect(pm.response.text()).to.include('validationStatus'); });"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json, text/event-stream"
+							},
+							{
+								"key": "Mcp-Session-Id",
+								"value": "{{mcp_session_id}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"jsonrpc\": \"2.0\",\n    \"id\": 60,\n    \"method\": \"tools/call\",\n    \"params\": {\n        \"name\": \"tc_validate_single_document\",\n        \"arguments\": {\n            \"itemId\": \"Y500988\",\n            \"expectedRevision\": \"002\",\n            \"projectId\": \"P06515\"\n        }\n    }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/mcp",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"mcp"
+							]
+						},
+						"description": "Validate one document against TC. Checks all 5 requirements. The P06515 is from your Annex B screenshot."
+					}
+				},
+				{
+					"name": "7.2 Validate Evidence List (Batch - Small)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function() { pm.response.to.have.status(200); });",
+									"pm.test('Contains totalItems', function() { pm.expect(pm.response.text()).to.include('totalItems'); });",
+									"pm.test('Contains passed count', function() { pm.expect(pm.response.text()).to.include('passed'); });",
+									"pm.test('Contains failed count', function() { pm.expect(pm.response.text()).to.include('failed'); });"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json, text/event-stream"
+							},
+							{
+								"key": "Mcp-Session-Id",
+								"value": "{{mcp_session_id}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"jsonrpc\": \"2.0\",\n    \"id\": 61,\n    \"method\": \"tools/call\",\n    \"params\": {\n        \"name\": \"tc_validate_evidence_list\",\n        \"arguments\": {\n            \"evidenceListJson\": \"[{\\\"itemId\\\": \\\"Y500988\\\", \\\"expectedRevision\\\": \\\"002\\\"}, {\\\"itemId\\\": \\\"Y427189\\\", \\\"expectedRevision\\\": \\\"007\\\"}, {\\\"itemId\\\": \\\"Y419764\\\", \\\"expectedRevision\\\": \\\"002\\\"}]\",\n            \"projectId\": \"P06515\"\n        }\n    }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/mcp",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"mcp"
+							]
+						},
+						"description": "Validate 3 documents from the evidence list. Uses Y-numbers from your Annex A (Y537764.006 evidence list)."
+					}
+				},
+				{
+					"name": "7.3 Validate Evidence List (Batch - From Annex A)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test('Status code is 200', function() { pm.response.to.have.status(200); });",
+									"pm.test('Contains results', function() { pm.expect(pm.response.text()).to.include('results'); });"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json, text/event-stream"
+							},
+							{
+								"key": "Mcp-Session-Id",
+								"value": "{{mcp_session_id}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"jsonrpc\": \"2.0\",\n    \"id\": 62,\n    \"method\": \"tools/call\",\n    \"params\": {\n        \"name\": \"tc_validate_evidence_list\",\n        \"arguments\": {\n            \"evidenceListJson\": \"[{\\\"itemId\\\": \\\"Y500988\\\", \\\"expectedRevision\\\": \\\"002\\\", \\\"title\\\": \\\"Quality Assurance Plan\\\"}, {\\\"itemId\\\": \\\"Y427189\\\", \\\"expectedRevision\\\": \\\"007\\\", \\\"title\\\": \\\"IOP\\\"}, {\\\"itemId\\\": \\\"Y426698\\\", \\\"expectedRevision\\\": \\\"007\\\", \\\"title\\\": \\\"Prj schedule\\\"}, {\\\"itemId\\\": \\\"Y419764\\\", \\\"expectedRevision\\\": \\\"002\\\", \\\"title\\\": \\\"GSU\\\"}, {\\\"itemId\\\": \\\"Y578341\\\", \\\"expectedRevision\\\": \\\"000\\\", \\\"title\\\": \\\"P-FMEA-s\\\"}, {\\\"itemId\\\": \\\"Y567814\\\", \\\"expectedRevision\\\": \\\"003\\\", \\\"title\\\": \\\"Quality and Safety Plan\\\"}]\",\n            \"projectId\": \"\"\n        }\n    }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/mcp",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"mcp"
+							]
+						},
+						"description": "Validate 6 documents from your Annex A evidence list (Y537764.006). Uses real Y-numbers from the screenshots."
+					}
+				},
+				{
+					"name": "7.4 Validate Evidence List (Word Doc - Annex A Y573472)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json, text/event-stream"
+							},
+							{
+								"key": "Mcp-Session-Id",
+								"value": "{{mcp_session_id}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"jsonrpc\": \"2.0\",\n    \"id\": 63,\n    \"method\": \"tools/call\",\n    \"params\": {\n        \"name\": \"tc_validate_evidence_list\",\n        \"arguments\": {\n            \"evidenceListJson\": \"[{\\\"itemId\\\": \\\"Y030200\\\", \\\"expectedRevision\\\": \\\"004\\\", \\\"title\\\": \\\"Glossary for Electronic Products\\\"}, {\\\"itemId\\\": \\\"Y056373\\\", \\\"expectedRevision\\\": \\\"002\\\", \\\"title\\\": \\\"PDC Glossary (obsolete)\\\"}, {\\\"itemId\\\": \\\"Y073789\\\", \\\"expectedRevision\\\": \\\"000\\\", \\\"title\\\": \\\"gps PM Abbreviations and Glossary\\\"}, {\\\"itemId\\\": \\\"Y471223\\\", \\\"expectedRevision\\\": \\\"002\\\", \\\"title\\\": \\\"PDC Project Classification Sheet\\\"}, {\\\"itemId\\\": \\\"Y567814\\\", \\\"expectedRevision\\\": \\\"002\\\", \\\"title\\\": \\\"Quality and Safety Plan\\\"}, {\\\"itemId\\\": \\\"Y601444\\\", \\\"expectedRevision\\\": \\\"000\\\", \\\"title\\\": \\\"PM Workbook\\\"}, {\\\"itemId\\\": \\\"Y218869\\\", \\\"expectedRevision\\\": \\\"005\\\", \\\"title\\\": \\\"Functional Hazard Analysis\\\"}, {\\\"itemId\\\": \\\"Y078565\\\", \\\"expectedRevision\\\": \\\"008\\\", \\\"title\\\": \\\"System Safety Concept\\\"}, {\\\"itemId\\\": \\\"Y071762\\\", \\\"expectedRevision\\\": \\\"006\\\", \\\"title\\\": \\\"Port Assignment List Volvo UD\\\"}]\",\n            \"projectId\": \"\"\n        }\n    }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/mcp",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"mcp"
+							]
+						},
+						"description": "Validate 9 documents from the Word-based evidence list (Y573472.006) in your Annex A."
+					}
+				}
+			]
+		},
+		{
+			"name": "8. Error Handling",
+			"item": [
+				{
+					"name": "8.1 Item Not Found",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json, text/event-stream"
+							},
+							{
+								"key": "Mcp-Session-Id",
+								"value": "{{mcp_session_id}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"jsonrpc\": \"2.0\",\n    \"id\": 70,\n    \"method\": \"tools/call\",\n    \"params\": {\n        \"name\": \"tc_get_item_revision\",\n        \"arguments\": {\n            \"itemId\": \"Y999999\"\n        }\n    }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/mcp",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"mcp"
+							]
+						},
+						"description": "Test with a Y-number that doesn't exist in TC."
+					}
+				},
+				{
+					"name": "8.2 Invalid Evidence List JSON",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json, text/event-stream"
+							},
+							{
+								"key": "Mcp-Session-Id",
+								"value": "{{mcp_session_id}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"jsonrpc\": \"2.0\",\n    \"id\": 71,\n    \"method\": \"tools/call\",\n    \"params\": {\n        \"name\": \"tc_validate_evidence_list\",\n        \"arguments\": {\n            \"evidenceListJson\": \"not-valid-json\",\n            \"projectId\": \"\"\n        }\n    }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/mcp",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"mcp"
+							]
+						},
+						"description": "Test error handling with invalid JSON input."
+					}
+				},
+				{
+					"name": "8.3 Call Non-existent Tool",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json, text/event-stream"
+							},
+							{
+								"key": "Mcp-Session-Id",
+								"value": "{{mcp_session_id}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"jsonrpc\": \"2.0\",\n    \"id\": 72,\n    \"method\": \"tools/call\",\n    \"params\": {\n        \"name\": \"tc_nonexistent_tool\",\n        \"arguments\": {}\n    }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/mcp",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"mcp"
+							]
+						}
+					}
+				}
+			]
+		}
+	]
+}
